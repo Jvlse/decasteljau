@@ -6,12 +6,18 @@
             body {
                 display: flex;
                 justify-content: center;
+                margin: 0;
+                overflow: hidden;
+            }
+            canvas {
+                border: 1px solid black;
             }
         </style>
-
         <script type="text/javascript">
-            var control = [ [80, 150], [20, 450], [350, 800], [450, 300], [750, 50], [900, 500], [1100, 200], [1300, 720], [1800, 200], [1500, 70] ];
+            var originalControl = [ [80, 150], [20, 450], [350, 800], [450, 300], [750, 50], [900, 500], [1100, 200], [1300, 720], [1800, 200], [1500, 70] ];
+            var control = [];
             var numControls = 6, numPoints = 80, algorithm = 0, canvas, context, param_t = 0.3;
+            var canvasWidth = 1920, canvasHeight = 1080; // Original dimensions for scaling
             
             function init() {
                 canvas = document.getElementById('canvas');
@@ -19,53 +25,90 @@
                 context.imageSmoothingEnabled = true;
                 context.fillStyle = "#ffffff";
                 context.strokeStyle = "#000000";
-                context.fillRect(0, 0, 1080, 1080);
+            
+                // Initialize control points
+                control = scalePoints(originalControl, canvasWidth, canvasHeight);
+            
+                resizeCanvas();
+            
+                window.addEventListener('resize', resizeCanvas);
                 canvas.addEventListener('mousedown', onMouseDown);
                 canvas.addEventListener('mouseup', onMouseUp);
                 canvas.addEventListener('mousemove', onMouseMove);
                 repaint();
             }
-
+            
+            function scalePoints(points, width, height) {
+                // Scaling control points to fit canvas size
+                return points.map(point => [
+                    point[0] * canvas.width / width,
+                    point[1] * canvas.height / height
+                ]);
+            }
+            
+            function unscalePoint(point, width, height) {
+                // Converting canvas coordinates back to original space
+                return [
+                    point[0] * width / canvas.width,
+                    point[1] * height / canvas.height
+                ];
+            }
+            
+            function resizeCanvas() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            
+                // Recalculate control points to match new canvas size
+                control = scalePoints(originalControl, canvasWidth, canvasHeight);
+            
+                repaint();
+            }
+            
             function calcXY(evt) {
-                var x = evt.pageX;
-                var y = evt.pageY;
-                x -= canvas.offsetLeft;
-                y -= canvas.offsetTop;
-                return [x,y];
+                var rect = canvas.getBoundingClientRect();
+                var x = evt.clientX - rect.left;
+                var y = evt.clientY - rect.top;
+                return [x, y];
             }
             
             var active = -1;
             function onMouseDown(evt) {
                 active = -1;
-                for (var i = 0; i < numControls; ++i)
-                    if (Math.abs(calcXY(evt)[0] - control[i][0]) < 10 && Math.abs(calcXY(evt)[1] - control[i][1]) < 10)
+                var mousePos = calcXY(evt);
+                for (var i = 0; i < numControls; ++i) {
+                    if (Math.abs(mousePos[0] - control[i][0]) < 10 && Math.abs(mousePos[1] - control[i][1]) < 10) {
                         active = i;
+                        break;
+                    }
+                }
                 repaint();
             }
-
+            
             function onMouseMove(evt) {
                 if (active == -1) 
                     return;
-                control[active][0] = calcXY(evt)[0];
-                control[active][1] = calcXY(evt)[1];
+                var mousePos = calcXY(evt);
+                control[active][0] = mousePos[0];
+                control[active][1] = mousePos[1];
                 repaint();
             }
-
+            
             function onMouseUp(evt) {
                 if (active != -1) {
-                    control[active][0] = calcXY(evt)[0];
-                    control[active][1] = calcXY(evt)[1];
+                    var mousePos = calcXY(evt);
+                    control[active][0] = mousePos[0];
+                    control[active][1] = mousePos[1];
                     active = -1;
                     repaint();
                 }
             }
-
+            
             function repaint() {
-                context.clearRect(0, 0, 1920, 1080);
+                context.clearRect(0, 0, canvas.width, canvas.height);
                 drawBezier();
                 drawControls();
             }
-
+            
             function drawLine(startX, startY, endX, endY, color) {
                 context.strokeStyle = color;
                 context.beginPath();
@@ -74,29 +117,25 @@
                 context.stroke();
             }
             
-            function drawPoint( px, py, color )
-            {
+            function drawPoint(px, py, color) {
                 context.strokeStyle = color;
                 context.beginPath();
                 context.arc(px, py, 5, 0, 2.0 * Math.PI);
                 context.stroke();
             }
-
+            
             function drawControls() {
                 var i;
                 for (i = 0; i < numControls - 1; ++i) 
-                    drawLine(control[i][0], control[i][1], control[i + 1][0], control[i + 1][1], '#000000')
+                    drawLine(control[i][0], control[i][1], control[i + 1][0], control[i + 1][1], '#000000');
                 for (i = 0; i < numControls; ++i) {
                     drawPoint(control[i][0], control[i][1], "#000000");
                     context.fillStyle = 'black';
                     context.font = '20px Arial';
-                    context.strokeText(i, control[i][0] + 10, control[i][1]);
+                    context.fillText(i, control[i][0] + 10, control[i][1]);
                 }
-                if (active != -1)
-                    drawPoint(control[active][0], control[active][1]);
             }
             
-            var point;
             function drawBezier() {
                 context.lineWidth = 2;
                 var color;
@@ -110,10 +149,13 @@
                     drawLine(last[0], last[1], point[0], point[1], color);
                     last = point;
                 }
-                var point = bezier( param_t );
-                drawPoint( point[0], point[ 1 ], "#dd4444" );
+                var point = bezier(param_t);
+                if (algorithm)
+                    drawPoint(point[0], point[1], "#3333FF");
+                else 
+                    drawPoint(point[0], point[1], "#49006A");
             }
-
+            
             function bezier(t) {
                 var pos;
                 if (algorithm == 0) 
@@ -122,15 +164,15 @@
                     pos = deCasteljauIterativ(t);
                 return pos;
             }
-
+            
             function add(v1, v2) {
                 return [v1[0] + v2[0], v1[1] + v2[1]];
             }
-
+            
             function mul(t, v) {
                 return [v[0] * t, v[1] * t];
             }
-
+            
             var colors = [ "#FFF7F3", "#FDE0DD", "#FCC5C0", "#FA9FB5", "#F768A1", "#DD3497", "#AE017E", "#7A0177", "#49006A",
                              "#FF3333", "#FF6666", "#FF9999", "#FFCCCC", "#FFFFFF", "#CCCCFF", "#9999FF", "#6666FF", "#3333FF"];
             function deCasteljau(t, i, j, degree) {
@@ -142,7 +184,7 @@
                     drawLine(p1[0], p1[1], p2[0], p2[1], colors[degree - 1]);
                 return add(mul((1.0 - t), p1), mul(t, p2));
             }
-
+            
             function deCasteljauIterativ(t) {
                 let degree = numControls - 1;
                 var p = control.slice();
@@ -152,29 +194,29 @@
                         var p1 = p[i];
                         var p2 = p[i + 1];
                         b[i] = add(mul((1 - t), p1), mul(t, p2));
-                        if (t == param_t) 
-                            drawLine(p1[0], p1[1], p2[0], p2[1], colors[numControls - degree + 12]);
+                        //if (t == param_t) 
+                            //drawLine(p1[0], p1[1], p2[0], p2[1], colors[numControls - degree + 12]);
                     }
                     degree--;
                     p = b;
-                } while (degree + 1 > 1)
+                } while (degree + 1 > 1);
                 return p[0];
             }
-
+            
             function param(t) {
                 param_t = t / 100.0;
                 var display = document.getElementById("param_t");
                 display.innerHTML = param_t.toFixed(2);
                 repaint();
             }
-
+            
             function setDegree(degree) {
                 numControls = parseInt(degree) + 1;
                 var display = document.getElementById("degree");
                 display.innerHTML = degree;
                 repaint();
             }
-
+            
             function algoChange(algo) {
                 if (algo == "Iterativ") 
                     algorithm = 1;
@@ -184,10 +226,9 @@
             }
         </script>
     </head>
-
     <body onload="init()" align="center">
         <div id="content">
-            <p> 
+            <p>
                 t = <input type="range" id="param_slider" min="0" max="100" oninput="param(this.value)" onchange="param(this.value)" />
                 <span id="param_t"></span> 
                 Grad = <input type="range" id="degree_slider" min="1" max="9" oninput="setDegree(this.value)" onchange="setDegree(this.value)" />
@@ -197,7 +238,7 @@
                     <option>Iterativ</option>
                 </select>
             </p>
-            <canvas id="canvas" width="1900" height="850"></canvas>
+            <canvas id="canvas"></canvas>
         </div>
     </body>
 </html>
