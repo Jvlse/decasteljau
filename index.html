@@ -14,10 +14,8 @@
             }
         </style>
         <script type="text/javascript">
-            var originalControl = [ [80, 150], [20, 450], [350, 800], [450, 300], [750, 50], [900, 500], [1100, 200], [1300, 720], [1800, 200], [1500, 70] ];
-            var control = [];
-            var numControls = 6, numPoints = 80, algorithm = 0, canvas, context, param_t = 0.3;
-            var canvasWidth = 1920, canvasHeight = 1080; // Original dimensions for scaling
+            var originalControl = [ [80, 150], [20, 450], [350, 800], [450, 300], [750, 50], [900, 500], [1100, 200], [1300, 720], [1800, 200], [1500, 70] ], control = [];
+            var numControls = 6, numPoints = 80, algorithm = 0, canvas, context, param_t = 0.3, canvasWidth = 1920, canvasHeight = 1080;
             
             function init() {
                 canvas = document.getElementById('canvas');
@@ -25,42 +23,30 @@
                 context.imageSmoothingEnabled = true;
                 context.fillStyle = "#ffffff";
                 context.strokeStyle = "#000000";
-            
-                // Initialize control points
                 control = scalePoints(originalControl, canvasWidth, canvasHeight);
-            
                 resizeCanvas();
-            
+
                 window.addEventListener('resize', resizeCanvas);
                 canvas.addEventListener('mousedown', onMouseDown);
                 canvas.addEventListener('mouseup', onMouseUp);
                 canvas.addEventListener('mousemove', onMouseMove);
+                canvas.addEventListener('touchstart', onTouchStart);
+                canvas.addEventListener('touchend', onTouchEnd);
+                canvas.addEventListener('touchmove', onTouchMove);
                 repaint();
             }
             
             function scalePoints(points, width, height) {
-                // Scaling control points to fit canvas size
                 return points.map(point => [
                     point[0] * canvas.width / width,
                     point[1] * canvas.height / height
                 ]);
             }
             
-            function unscalePoint(point, width, height) {
-                // Converting canvas coordinates back to original space
-                return [
-                    point[0] * width / canvas.width,
-                    point[1] * height / canvas.height
-                ];
-            }
-            
             function resizeCanvas() {
                 canvas.width = window.innerWidth;
                 canvas.height = window.innerHeight;
-            
-                // Recalculate control points to match new canvas size
                 control = scalePoints(originalControl, canvasWidth, canvasHeight);
-            
                 repaint();
             }
             
@@ -68,6 +54,14 @@
                 var rect = canvas.getBoundingClientRect();
                 var x = evt.clientX - rect.left;
                 var y = evt.clientY - rect.top;
+                return [x, y];
+            }
+            
+            function calcTouch(evt) {
+                var rect = canvas.getBoundingClientRect();
+                var touch = evt.touches[0];
+                var x = touch.clientX - rect.left;
+                var y = touch.clientY - rect.top;
                 return [x, y];
             }
             
@@ -98,6 +92,40 @@
                     var mousePos = calcXY(evt);
                     control[active][0] = mousePos[0];
                     control[active][1] = mousePos[1];
+                    active = -1;
+                    repaint();
+                }
+            }
+            
+            function onTouchStart(evt) {
+                evt.preventDefault();
+                active = -1;
+                var touchPos = calcTouch(evt);
+                for (var i = 0; i < numControls; ++i) {
+                    if (Math.abs(touchPos[0] - control[i][0]) < 10 && Math.abs(touchPos[1] - control[i][1]) < 10) {
+                        active = i;
+                        break;
+                    }
+                }
+                repaint();
+            }
+            
+            function onTouchMove(evt) {
+                evt.preventDefault();
+                if (active == -1) 
+                    return;
+                var touchPos = calcTouch(evt);
+                control[active][0] = touchPos[0];
+                control[active][1] = touchPos[1];
+                repaint();
+            }
+            
+            function onTouchEnd(evt) {
+                evt.preventDefault();
+                if (active != -1) {
+                    var touchPos = calcTouch(evt);
+                    control[active][0] = touchPos[0];
+                    control[active][1] = touchPos[1];
                     active = -1;
                     repaint();
                 }
@@ -194,8 +222,8 @@
                         var p1 = p[i];
                         var p2 = p[i + 1];
                         b[i] = add(mul((1 - t), p1), mul(t, p2));
-                        //if (t == param_t) 
-                            //drawLine(p1[0], p1[1], p2[0], p2[1], colors[numControls - degree + 12]);
+                        if (t == param_t) 
+                            drawLine(p1[0], p1[1], p2[0], p2[1], colors[numControls - degree + 12]);
                     }
                     degree--;
                     p = b;
@@ -226,7 +254,7 @@
             }
         </script>
     </head>
-    <body onload="init()" align="center">
+    <body onload="init()">
         <div id="content">
             <p>
                 t = <input type="range" id="param_slider" min="0" max="100" oninput="param(this.value)" onchange="param(this.value)" />
