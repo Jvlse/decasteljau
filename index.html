@@ -246,7 +246,7 @@
             }
             
             function algoChange(algo) {
-                if (algo == "Iterativ") 
+                if (algo == "iterative") 
                     algorithm = 1;
                 else 
                     algorithm = 0;
@@ -259,11 +259,11 @@
             <p>
                 t = <input type="range" id="param_slider" min="0" max="100" oninput="param(this.value)" onchange="param(this.value)" />
                 <span id="param_t"></span> 
-                Grad = <input type="range" id="degree_slider" min="1" max="9" oninput="setDegree(this.value)" onchange="setDegree(this.value)" />
+                | degree = <input type="range" id="degree_slider" min="1" max="9" oninput="setDegree(this.value)" onchange="setDegree(this.value)" />
                 <span id="degree"></span>
-                <select name="Algorithmus" size="2" onchange="algoChange(this.value)">
-                    <option>Rekursiv</option>
-                    <option>Iterativ</option>
+                | method = <select name="Algorithm" size="2" onchange="algoChange(this.value)">
+                    <option>recursive</option>
+                    <option>iterative</option>
                 </select>
             </p>
             <canvas id="canvas"></canvas>
